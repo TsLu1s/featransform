@@ -1,17 +1,17 @@
 import setuptools
-# read the contents of your README file
 from pathlib import Path
+
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setuptools.setup(
     name="featransform",
-    version="0.1.10", 
+    version="1.6.5", 
     description="Featransform is an automated feature engineering framework for supervised machine learning",
     long_description=long_description,      
     long_description_content_type="text/markdown",
     url="https://github.com/TsLu1s/Featransform",
-    author="Luís Santos",
+    author="Luís Fernando da Silva Santos",
     author_email="luisf_ssantos@hotmail.com",
     license="MIT",
     classifiers=[
@@ -29,9 +29,9 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
 
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
     ],
     py_modules=["featransform"],
     packages=setuptools.find_packages(where="src"),
@@ -44,6 +44,6 @@ setuptools.setup(
         "automated feature engineering",
         "automated machine learning",
         "predictive modeling",
-    ],           
+    ],
     install_requires=open("requirements.txt").readlines(),
 )

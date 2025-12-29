@@ -12,7 +12,7 @@
 [license-shield]: https://img.shields.io/github/license/TsLu1s/Featransform.svg?style=for-the-badge&logo=opensource&logoColor=white
 [license-url]: https://github.com/TsLu1s/Featransform/blob/main/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/luísfssantos/
+[linkedin-url]: https://www.linkedin.com/in/luisfssantos98/
 [downloads-shield]: https://static.pepy.tech/personalized-badge/featransform?period=total&units=international_system&left_color=grey&right_color=blue&left_text=Total%20Downloads
 [downloads-url]: https://pepy.tech/project/featransform
 [downloads-month-shield]: https://static.pepy.tech/personalized-badge/featransform?period=month&units=international_system&left_color=grey&right_color=blue&left_text=Month%20Downloads
@@ -22,10 +22,10 @@
 <p align="center">
   <h2 align="center"> Featransform: Automated Feature Engineering Framework for Supervised Machine Learning
   <br>
-  
+
 ## Framework Contextualization <a name = "ta"></a>
 
-The `Featransform` project constitutes an objective and integrated proposition to automate feature engineering through the integration of various approachs of input pattern recognition known in Machine Learning such as dimensionality reduction, anomaly detection, clustering approaches and datetime feature constrution. This package provides an ensemble of diverse applications of each specific approach, aggregating and generating them all as added engineered features based on the original input columns. 
+The `Featransform` project constitutes an objective and modern proposition to automate feature engineering framework through the integration of various approachs of input pattern recognition known in Machine Learning such as dimensionality reduction, anomaly detection, clustering approaches and datetime feature constrution. Built with advanced design patterns and a modular architecture, it seamlessly orchestrates multiple feature engineering techniques including anomaly detection, clustering, dimensionality reduction, and temporal feature extraction—all optimized through intelligent validation-driven feature selection.
 
 In order to avoid generation of noisy data for predictive consumption, after the engineered features ensemble are concatenated with the original features, a backwards wrapper feature selection also known as backward elimination is implemented to iteratively remove features based on evaluation of relevance, maintaining only valuable columns available for future models performance improvement purposes.
 
@@ -52,6 +52,8 @@ Major frameworks used to built this project:
     
 Binary installer for the latest released version is available at the Python Package Index [(PyPI)](https://pypi.org/project/featransform/).   
 
+GitHub Project Link: [https://github.com/TsLu1s/Featransform](https://github.com/TsLu1s/Featransform)
+
 ## Installation  
 
 To install this package from Pypi repository run the following command:
@@ -71,11 +73,6 @@ You can customize the `fit_engineering` method by altering the following running
 * optimize_iters: Number of iterations generated for backwards feature selection optimization.
 * validation_split: Division ratio in which the feature engineering methods will be evaluated within the loaded Dataset (range: [0.05, 0.45]).
 
-
-
-Relevant Note:
-* Although functional, `Featransform` pipeline is not optimized for big data purposes yet.
-
 ```py
     
 import pandas as pd
@@ -85,7 +82,7 @@ from featransform.pipeline import (Featransform,
 import warnings
 warnings.filterwarnings("ignore", category=Warning) # -> For a clean console
     
-data = pd.read_csv('csv_directory_path', encoding='latin', delimiter=',') # Dataframe Loading Example
+data = pd.read_csv('csv_directory_path') # Dataframe Loading Example
 
 train,test = train_test_split(data, train_size=0.8)
 train,test = train.reset_index(drop=True), test.reset_index(drop=True) # -> Required 
@@ -98,7 +95,7 @@ print(configs)
 
 configs['Unsupervised']['Isolation_Forest']['n_estimators'] = 300
 configs['Clustering']['KMeans']['n_clusters'] = 3
-configs['DimensionalityReduction']['UMAP']['n_components'] = 6
+configs['DimensionalityReduction']['TruncatedSVDStrategy']['n_components'] = 5
 
 ## Fit Data
 
@@ -122,15 +119,58 @@ pickle.dump(ft, output)
     
 ```  
 
-#### Further Implementations
+## Usage Examples
 
-Further automated and customizable feature engineering ensemble methods applications can be checked here: [Featransform Examples](https://github.com/TsLu1s/Featransform/tree/main/examples)
+Further automated and customizable feature engineering applications:
+
+* [Baseline Example](https://github.com/TsLu1s/Featransform/blob/main/examples/baseline_example.py) - Get started right way with intelligent preset configurations, synthetic dataset generation, and seamless pipeline serialization for production deployment
+* [Advanced Configuration](https://github.com/TsLu1s/Featransform/blob/main/examples/advanced_config_example.py) - Build fully customized pipelines from scratch with complete control over preprocessing strategies, feature engineering components, and optimization parameters
+* [Component Testing](https://github.com/TsLu1s/Featransform/blob/main/examples/component_testing.py) - Deep-dive into individual components with comprehensive train-test evaluation across encoding, imputation, anomaly detection, clustering, and dimensionality reduction methods
+
+## Core Capabilities
+
+**Feature Engineering Methods:**
+- Anomaly Detection (Isolation Forest, LOF, One-Class SVM, Elliptic Envelope)
+- Clustering (KMeans, Birch, DBSCAN, Gaussian Mixture)
+- Dimensionality Reduction (PCA, SVD, FastICA)
+- Temporal Features (Cyclic encoding, datetime decomposition)
+
+**Intelligent Processing:**
+- Advanced Imputation (Mean, Median, Iterative, KNN)
+- Categorical Encoding (Label)
+- Automated Feature Selection (Importance-based)
+
+## Built With
+
+Major frameworks used to build this project:
+
+* [Pandas](https://pandas.pydata.org/)
+* [Scikit-learn](https://scikit-learn.org/stable/)
+* [XGBoost](https://xgboost.readthedocs.io/en/stable/)
+* [CatBoost](https://catboost.ai/)
+* [Pydantic](https://docs.pydantic.dev/)
+
+```bibtex
+@software{featransform2023,
+  author = {Luis Fernando Santos},
+  title = {Featransform: Automated Feature Engineering Framework for Supervised Machine Learning},
+  year = {2023},
+  publisher = {PyPI},
+  url = {https://pypi.org/project/segmentae/}
+}
+```
 
 ## License
 
-Distributed under the MIT License. See [LICENSE](https://github.com/TsLu1s/Featransform/blob/main/LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE](https://github.com/TsLu1s/featransform/blob/main/LICENSE) for more information.
 
 ## Contact 
  
-[Luis Santos - LinkedIn](https://www.linkedin.com/in/lu%C3%ADsfssantos/)
+[Luis Santos - LinkedIn](https://www.linkedin.com/in/luisfssantos98/)
+
+
+
+
+
+
 

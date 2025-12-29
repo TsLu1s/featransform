@@ -1,236 +1,321 @@
-import numpy as np
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict, Any
 import pandas as pd
-from atlantic.processing.analysis import Analysis
-from featransform.processing.processor import AutoLabelEncoder, AutoIterativeImputer
-from featransform.feature_engineering.anomalies import Anomaly_Engineering
-from featransform.feature_engineering.clustering import Clustering_Engineering
-from featransform.feature_engineering.dimensionality import PCAensemble
-from featransform.optimizer.evaluator import Evaluation
-from featransform.optimizer.selector import Selector
-from featransform.configs.parameters import configurations
+import numpy as np
+from sklearn.model_selection import train_test_split
 
-sec_conf = configurations()
+from featransform.core.base import BasePipeline
+from featransform.core.models import PipelineConfig, OptimizationHistory
+from featransform.core.enums import PipelineStage, TaskType
+from featransform.core.exceptions import NotFittedError
+from featransform.builder import BuilderPipeline
 
-class Featransform:
-    def __init__(self,
-                 configs : dict = sec_conf,
-                 optimize_iters : int = 6, 
-                 validation_split : float = 0.15):
-        """
-        Initialize the Featransform object.
-
-        :param validation_split: The ratio to split the dataset into training and testing sets.
-        :param optimize_iters: The number of iterations to optimize feature selection.
-        :param configs: Configuration dictionary.
-        """
-        self.validation_split = validation_split
-        self.optimize_iters = optimize_iters
-        self.configs = configs
-        self.iter_imputer = None # AutoIterativeImputer object for handling missing values through imputation
-        self.encoder = None # AutoLabelEncoder object for encoding categorical variables
-        self.selected_features, self.orig_cols, self.eng_cols = [], [], [] # Lists to store selected, original, and engineered features
-        self.feature_importance = None # Variable to store feature importance information
-        self.performance_history = None  # Variable to store performance history during feature selection optimization
-        self.target = None # Target column variable
-        self.dp = None # Analysis object for dataset analysis and processing
-        self.cl = None # Clustering_Engineering object for clustering-based feature engineering
-        self.ae = None # Anomaly_Engineering object for anomaly detection-based feature engineering
-        self.pcae = None # PCAensemble object for dimensionality reduction using PCA models
-        
-        assert 0.05 <= validation_split <= 0.45, 'validation_split should be in [0.05, 0.45] interval'
-        assert 0 <= optimize_iters <= 10 , 'optimize_iters value should be in [0, 10] interval'
-        
-        
-    def fit_engineering(self,
-                        X : pd.DataFrame = None,
-                        target : str = None):
-        """
-        Fit various feature engineering steps.
-
-        :param X: Input DataFrame.
-        :param target: Target column.
-        :return: Returns the class instance.
-        """
-        
-        assert X.shape[0] >= 5 , 'Input columns should be at least of size 4'
-        
-        # Initialize Analysis, target, and create a copy of the input DataFrame
-        self.dp, self.target, X_ = Analysis(target), target, X.copy()
-        
-        # Convert datetime columns to a standard format
-        datetime_columns = X_.select_dtypes(include=[np.datetime64]).columns
-        for col in datetime_columns:
-            X_[col]=pd.to_datetime(X_[col].dt.strftime('%Y-%m-%d %H:%M:%S'))
-
-        # Engineering date features and dropping Id type and constant columns
-        X_ = self.dp.engin_date(X_, drop = True)
-        X_ = X_.drop(columns=[col for col in X_.columns if X_[col].nunique() == len(X_) or X_[col].nunique() == 1])
-
-        # Split the dataset into training and testing sets
-        train,test = self.dp.split_dataset(X=X_,split_ratio=1-self.validation_split)
-        train,test = train.reset_index(drop = True), test.reset_index(drop = True)
-        train = train[[col for col in train.columns if col != self.target] + [self.target]] # target to last index position
-
-         # Store original columns and categorical columns
-        self.orig_cols, cat_cols = list(train.columns), list(self.dp.cat_cols(X = train))
-        
-        # Imputation step using AutoIterativeImputer
-        if (train.isnull().sum().sum() or test.isnull().sum().sum()) != 0:
-      
-            ## Create Iterative Imputer
-            self.iter_imputer = AutoIterativeImputer(initial_strategy = 'mean',
-                                                     imputation_order = 'ascending')
-            # Fit
-            self.iter_imputer.fit(train)
-            # Transform
-            train = self.iter_imputer.transform(train.copy())
-            test = self.iter_imputer.transform(test.copy())
-        
-        # Encoding categorical columns using AutoLabelEncoder
-        if len(cat_cols)>0:
-
-            ## Create Label Encoder
-            self.encoder = AutoLabelEncoder()
-            # Fit
-            self.encoder.fit(train[cat_cols])
-            # Transform
-            train = self.encoder.transform(X = train)
-            test = self.encoder.transform(X = test)
-
-        # Split the data into training and testing sets after imputation and encoding
-        X_train, X_test, y_train, y_test = self.dp.divide_dfs(train = train, test = test)
-        
-        ############################################### Feature Engineering
-        # Anomaly Detection
-        print('Fitting Anomaly Detection Ensemble')
-        # Instantiate the Anomaly_Engineering class with unsupervised anomaly detection models
-        self.ae = Anomaly_Engineering(det_models = list(self.configs['Unsupervised'].keys()),
-                                      configs = self.configs,
-                                      del_score = True)
-        # Fit the unsupervised anomaly detection models on the training data
-        self.ae.unsupervised_fit(X = X_train)
-        # Predict anomalies for the training and testing datasets
-        anomalies_train = self.ae.unsupervised_prediction(X = X_train)
-        anomalies_test = self.ae.unsupervised_prediction(X = X_test)
-
-        # Clustering
-        print('Fitting Clustering Ensemble')
-        # Instantiate the Clustering_Engineering class with clustering models
-        self.cl = Clustering_Engineering(cluster_models = [c for c in list(self.configs['Clustering'].keys()) if c != 'DBSCAN'], 
-                                         configs = self.configs)
-        # Fit the clustering models on the training data
-        self.cl.clustering_fit(X = X_train)
-        # Predict clusters for the training and testing datasets
-        clustering_train = self.cl.clustering_prediction(X = X_train)
-        clustering_test = self.cl.clustering_prediction(X = X_test)
-
-        # PCAs Ensemble
-        print("Fitting PCA's Ensemble")
-        # Instantiate the PCAensemble class with PCA models
-        self.pcae = PCAensemble(pca_models = list(self.configs['DimensionalityReduction'].keys()), 
-                                configs = self.configs)
-        # Fit the PCA models on the training data
-        self.pcae.dimensionality_fit(X = X_train)
-        # Transform the training and testing datasets using PCA
-        pcas_train = self.pcae.dimensionality_transform(X = X_train)
-        pcas_test = self.pcae.dimensionality_transform(X = X_test)
-        
-        #####################################
-        # Feature Engineered Datasets
-        # Concatenate the anomalies, clustering, and PCA transformed features with the original datasets
-        train_concat = pd.concat([pd.concat([anomalies_train, clustering_train, pcas_train], axis=1),train],axis=1) 
-        test_concat = pd.concat([pd.concat([anomalies_test, clustering_test, pcas_test], axis=1),test],axis=1)  
-
-        #####################################
-        # Evaluation
-        # If optimization iterations are less than or equal to 1, use all features
-        if self.optimize_iters <= 1:
-            self.selected_features = list(train_concat.columns)
-        else:
-            print(' ')
-            print('Feature Selection Optimization: ')
-            # Instantiate the Evaluation class for feature selection optimization
-            ev = Evaluation(train = train_concat,
-                            test = test_concat,
-                            target = target,
-                            optimize_iters = self.optimize_iters,
-                            configs = self.configs)
-            # Perform feature selection optimization and get the selected features
-            self.selected_features = ev.feature_upgrading()
-            # Save performance history and feature importance from the evaluation
-            self.performance_history, self.feature_importance = ev.performance_history, ev.va_imp
-        # Identify the engineered features
-        self.eng_cols = [col for col in self.selected_features if col not in self.orig_cols]
-        
-        return self
-        
-    def transform(self, X : pd.DataFrame):
-        """
-        Transform the input DataFrame using the fitted feature engineering steps.
-
-        :param X: Input DataFrame.
-        :return: Transformed DataFrame.
-        """
-        # Create a copy of the input DataFrame
-        X_ = X.copy()
-
-        # Reset index for consistency
-        X_ = X_.reset_index(drop = True)
-
-        # Convert datetime columns to a standard format
-        datetime_columns = X_.select_dtypes(include=[np.datetime64]).columns
-        for col in datetime_columns:
-            X_[col]=pd.to_datetime(X_[col].dt.strftime('%Y-%m-%d %H:%M:%S'))
-
-        # Engineering date features
-        X_ = self.dp.engin_date(X_, drop = True)
-
-        # Extract original columns for the transformed DataFrame
-        X_ = X_[self.orig_cols]
-        X_orig = X_.copy()
-
-        # Imputation step using AutoIterativeImputer if fitted during training
-        if self.iter_imputer is not None:
-            X_ = self.iter_imputer.transform(X = X_.copy())
-
-        # Encoding categorical columns using AutoLabelEncoder if fitted during training
-        if self.encoder is not None:
-            X_ = self.encoder.transform(X = X_.copy())
-
-        # Extract features for anomaly detection, clustering, and PCA transformation
-        X_input= X_[[col for col in X_.columns if col != self.target]]
-        
-        # Anomalies
-        anomalies = self.ae.unsupervised_prediction(X = X_input)
-        # Clustering
-        clustering = self.cl.clustering_prediction(X = X_input)
-        # PCA's
-        pcas = self.pcae.dimensionality_transform(X = X_input)
-        
-        # Concatenate the transformed features with the original DataFrame
-        X_ = pd.concat([pd.concat([anomalies, clustering, pcas], axis=1),X_orig],axis=1)
-        
-        # Select only the engineered and selected features
-        X_ = X_[self.selected_features]
-        # Reorder columns to match the original order
-        X_ = X_[list(set(self.orig_cols).intersection(self.selected_features)) + 
-                        [col for col in X_.columns 
-                                 if col not in list(set(self.orig_cols).intersection(self.selected_features))]]
-        
-        return X_
+@dataclass
+class PipelineState:
+    """Pipeline execution state."""
+    data: pd.DataFrame
+    target: Optional[pd.Series] = None
+    stage: PipelineStage = PipelineStage.PREPROCESSING
+    features_created: List[str] = field(default_factory=list)
+    transformations_applied: List[str] = field(default_factory=list)
     
-
-__all__ = [
-    'AutoLabelEncoder',
-    'AutoIterativeImputer',
-    'Anomaly_Engineering',
-    'Clustering_Engineering',
-    'PCAensemble',
-    'Evaluation',
-    'Selector',
-    'configurations'
-]
+    def evolve(self, **kwargs) -> 'PipelineState':
+        """Create new state with updates."""
+        return PipelineState(
+            **{**self.__dict__, **kwargs, 
+               'features_created': self.features_created.copy(),
+               'transformations_applied': self.transformations_applied.copy()}
+        )
 
 
+class Featransform(BasePipeline, BuilderPipeline):
+    """
+    Feature engineering pipeline with automatic optimization.
+    Implements builder pattern for component construction.
+    """
+    
+    def __init__(self, config: PipelineConfig):
+        BuilderPipeline.__init__(self)
+        self.config = config
+        self._state: Optional[PipelineState] = None
+        self._optimization_history: List[OptimizationHistory] = []
+        self._feature_importance: Optional[Dict[str, float]] = None
+        
+        # Build components using implemented abstract method
+        self._components = self.build_components(config)
+        
+        BasePipeline.__init__(self, stages=list(self._components.values()), verbose=config.verbose)
+    
+    def build_components(self, config: PipelineConfig) -> Dict[str, Any]:
+        """Implementation of abstract component building."""
+        return self._build_pipeline(config)
+    
+    def _select_components(self, config: PipelineConfig) -> List[str]:
+        """Select components to build based on configuration."""
+        components = []
+        
+        if config.anomaly_models:
+            components.append('anomaly')
+        if config.clustering_models:
+            components.append('clustering')
+        if config.dimensionality_models:
+            components.append('dimensionality')
+        
+        return components
+    
+    def fit(self, X: pd.DataFrame, y: pd.Series) -> 'Featransform':
+        """Fit pipeline with optional optimization."""
+        self._validate_input(X)
+        
+        # Store the initial training schema
+        #self._store_fit_schema(X)
+        
+        # Prepare data splits
+        X_train, X_val, y_train, y_val = self.__prepare_splits(X, y)
+        
+        # Execute pipeline
+        self._state = PipelineState(data=X_train.copy(), target=y_train)
+        self._state = self.__process_pipeline(self._state, fit=True)
+        
+        # Optimize if validation available
+        if X_val is not None:
+            self.__optimize_features(X_val, y_val)
 
+        # Update schema after feature engineering
+        self._store_fit_schema(self._state.data)
+        
+        self._fitted = True
+        self._log(f"Pipeline fitted: {self._state.data.shape[1]} features")
+        return self
+    
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Transform data through fitted pipeline."""
+        self._check_fitted()
+        self._validate_input(X)
 
+        state = self.__process_pipeline(PipelineState(data=X.copy()))
+        
+        # Apply learned selection if available
+        if self.has_component('selector') and self._components['selector']._fitted:
+            state.data = self._components['selector'].transform(state.data)
+            # Ensure final output matches training schema
+            state.data = self._validate_transform_schema(state.data)
+        
+        return state.data
+    
+    def fit_transform(self, X: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
+        """Fit and transform in one call."""
+        return self.fit(X, y).transform(X)
+    
+    def __process_pipeline(self, state: PipelineState, fit: bool = False) -> PipelineState:
+        """Process all pipeline stages."""
+        # Preprocessing stage
+        state = self.__preprocess(state, fit)
+        
+        # Feature engineering stage
+        state = self.__engineer_features(state, fit)
+        
+        return state
+    
+    def __preprocess(self, state: PipelineState, fit: bool = False) -> PipelineState:
+        """Apply preprocessing transformations."""
+        state = state.evolve(stage=PipelineStage.PREPROCESSING)
+        
+        # Handle datetime features
+        if self.config.processing.handle_datetime:
+            state = self.__extract_datetime(state)
+        
+        # Apply processors
+        for comp in ['imputer', 'encoder']:
+            if self.has_component(comp):
+                state = self.__apply_component(state, comp, fit)
+        
+        # Clean features
+        if self.config.processing.drop_constant:
+            state.data = state.data.loc[:, state.data.nunique() > 1]
+        
+        if self.config.processing.drop_duplicates:
+            state.data = state.data.T.drop_duplicates().T
+        
+        return state
+    
+    def __engineer_features(self, state: PipelineState, fit: bool = False) -> PipelineState:
+        """Apply feature engineering transformations."""
+        state = state.evolve(stage=PipelineStage.FEATURE_ENGINEERING)
+        engineered = []
+        
+        for comp in ['anomaly', 'clustering', 'dimensionality']:
+            if self.has_component(comp):
+                component = self._components[comp]
+                
+                if fit and not component._fitted:
+                    component.fit(state.data, state.target)
+                
+                result = component.transform(state.data)
+                engineered.append(result.features)
+                state.features_created.extend(result.features.columns.tolist())
+                state.transformations_applied.append(comp)
+        
+        if engineered:
+            state.data = pd.concat([state.data] + engineered, axis=1)
+        
+        return state
+    
+    def __apply_component(self, state: PipelineState, name: str, fit: bool) -> PipelineState:
+        """Apply single component transformation."""
+        component = self._components[name]
+        
+        if fit and not component._fitted:
+            component.fit(state.data, state.target)
+        
+        state.data = component.transform(state.data)
+        state.transformations_applied.append(name)
+        return state
+    
+    def __optimize_features(self, X_val: pd.DataFrame, y_val: pd.Series) -> None:
+        """Optimize feature selection using integrated selector."""
+        val_state = self.__process_pipeline(PipelineState(data=X_val.copy()))
+        
+        # Setup selector with metric
+        selector = self._components['selector']
+        selector.metric = self.config.optimization.metric
+
+        # FIT THE SELECTOR FIRST - this sets the task_type!
+        selector.fit(self._state.data, self._state.target)
+        
+        # Generate thresholds
+        thresholds = [1 - (i/100) for i in range(0, min(10, self.config.optimization.n_iterations))]
+        
+        # Get baseline score
+        baseline_score = selector.evaluate_subset(
+            self._state.data, self._state.target, val_state.data, y_val
+        )
+        self._optimization_history.append(OptimizationHistory(
+            iteration=-1, score=baseline_score,
+            n_features=self._state.data.shape[1], 
+            selected_features=list(self._state.data.columns)
+        ))
+        
+        # Optimize selection
+        best_features, best_score, history = selector.optimize(
+            self._state.data, self._state.target,
+            val_state.data, y_val,
+            thresholds
+        )
+        
+        # Record history
+        for i, result in enumerate(history):
+            self._optimization_history.append(OptimizationHistory(
+                iteration=i, score=result['score'],
+                n_features=result['n_features'], 
+                selected_features=result['features']
+            ))
+            self._log(f"Threshold {result['threshold']:.2f}: {result['n_features']} features, score: {result['score']:.4f}")
+        
+        # Apply best selection
+        self._state.data = self._state.data[best_features]
+        self._state = self._state.evolve(stage=PipelineStage.FEATURE_SELECTION)
+        self._feature_importance = selector.get_feature_scores()
+    
+    def __extract_datetime(self, state: PipelineState) -> PipelineState:
+        """Extract comprehensive datetime features."""
+        dt_cols = state.data.select_dtypes(include=['datetime64']).columns
+        
+        for col in dt_cols:
+            dt = state.data[col].dt
+            
+            # Core temporal features
+            state.data[f'{col}_year'] = dt.year
+            state.data[f'{col}_month'] = dt.month
+            state.data[f'{col}_day'] = dt.day
+            state.data[f'{col}_dayofweek'] = dt.dayofweek
+            state.data[f'{col}_dayofyear'] = dt.dayofyear
+            state.data[f'{col}_quarter'] = dt.quarter
+            state.data[f'{col}_weekofyear'] = dt.isocalendar().week
+            
+            # Weekend flag
+            state.data[f'{col}_is_weekend'] = (dt.dayofweek >= 5).astype(int)
+            
+            # Time components if present
+            if dt.hour.notna().any():
+                state.data[f'{col}_hour'] = dt.hour
+                state.data[f'{col}_minute'] = dt.minute
+                state.data[f'{col}_second'] = dt.second
+                
+            # Cyclic encodings for periodicity
+            state.data[f'{col}_month_sin'] = np.sin(2 * np.pi * dt.month / 12)
+            state.data[f'{col}_month_cos'] = np.cos(2 * np.pi * dt.month / 12)
+            state.data[f'{col}_day_sin'] = np.sin(2 * np.pi * dt.day / 31)
+            state.data[f'{col}_day_cos'] = np.cos(2 * np.pi * dt.day / 31)
+            
+            # Drop original column
+            state.data = state.data.drop(columns=[col])
+        
+        return state
+    
+    def __prepare_splits(self, X: pd.DataFrame, y: pd.Series) -> tuple:
+        """Prepare train/validation splits."""
+        if not self.config.optimization or self.config.optimization.n_iterations == 0:
+            return X, None, y, None
+    
+        stratify = y if self.__detect_task_type(y) != TaskType.REGRESSION else None
+        return train_test_split(
+            X, y, 
+            test_size=self.config.optimization.validation_split,
+            random_state=self.config.random_state, 
+            stratify=stratify
+        )
+    
+    def __detect_task_type(self, y: pd.Series) -> TaskType:
+        """Detect ML task type."""
+        if y.dtype in ['float64', 'float32']:
+            return TaskType.REGRESSION
+        return TaskType.BINARY_CLASSIFICATION if y.nunique() == 2 else TaskType.MULTICLASS_CLASSIFICATION
+    
+    def get_params(self) -> Dict[str, Any]:
+        """Get pipeline parameters."""
+        return {"config": self.config}
+    
+    def set_params(self, **params) -> 'Featransform':
+        """Set pipeline parameters."""
+        if 'config' in params:
+            self.config = params['config']
+            self._components = self.build_components(self.config)
+        return self
+    
+    def get_optimization_history(self) -> List[OptimizationHistory]:
+        """Get optimization history."""
+        return self._optimization_history
+    
+    def get_feature_importance(self) -> Optional[Dict[str, float]]:
+        """Get feature importance scores."""
+        return self._feature_importance
+    
+    def get_pipeline_schema(self) -> Optional[List[str]]:
+        """Get the stored training schema."""
+        return self.get_fit_schema()
+    
+    def get_summary(self) -> Dict[str, Any]:
+        """Get pipeline summary."""
+        if not self._fitted:
+            raise NotFittedError("Pipeline not fitted")
+        
+        best = max(self._optimization_history, key=lambda x: x.score) if self._optimization_history else None
+        
+        return {
+            "features": {
+                "initial": len(self._fit_schema) if self._fit_schema else 0,
+                "final": self._state.data.shape[1],
+                "engineered": len(self._state.features_created)
+            },
+            "schema": {
+                "columns": self.get_fit_schema(),
+                "dtypes": dict(self._state.data.dtypes.astype(str)) if self._state else {}
+            },
+            "transformations": self._state.transformations_applied,
+            "optimization": {
+                "best_score": best.score if best else None,
+                "best_features": best.n_features if best else None,
+                "iterations": len(self._optimization_history)
+            },
+            "components": {k: type(v).__name__ for k, v in self._components.items()}}
