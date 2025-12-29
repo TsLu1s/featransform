@@ -123,9 +123,9 @@ pickle.dump(ft, output)
 
 Further automated and customizable feature engineering applications:
 
-* [Baseline Example](https://github.com/TsLu1s/Featransform/blob/main/examples/baseline_example.py) - Get started right way with intelligent preset configurations, synthetic dataset generation, and seamless pipeline serialization for production deployment
-* [Advanced Configuration](https://github.com/TsLu1s/Featransform/blob/main/examples/advanced_config_example.py) - Build fully customized pipelines from scratch with complete control over preprocessing strategies, feature engineering components, and optimization parameters
-* [Component Testing](https://github.com/TsLu1s/Featransform/blob/main/examples/component_testing.py) - Deep-dive into individual components with comprehensive train-test evaluation across encoding, imputation, anomaly detection, clustering, and dimensionality reduction methods
+* [Baseline Example](https://github.com/TsLu1s/featransform/blob/main/examples/baseline_featransform.py) - Get started right way with intelligent preset configurations, synthetic dataset generation, and seamless pipeline serialization for production deployment
+* [Advanced Configuration](https://github.com/TsLu1s/featransform/blob/main/examples/automated_featransform.py) - Build fully customized pipelines from scratch with complete control over preprocessing strategies, feature engineering components, and optimization parameters
+* [Component Testing](https://github.com/TsLu1s/featransform/blob/main/examples/decomposed_featransform.py) - Deep-dive into individual components with comprehensive train-test evaluation across encoding, imputation, anomaly detection, clustering, and dimensionality reduction methods
 
 ## Core Capabilities
 
