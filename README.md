@@ -156,7 +156,7 @@ Major frameworks used to build this project:
   title = {Featransform: Automated Feature Engineering Framework for Supervised Machine Learning},
   year = {2023},
   publisher = {PyPI},
-  url = {https://pypi.org/project/segmentae/}
+  url = {https://pypi.org/project/featransform/}
 }
 ```
 
