@@ -25,4 +25,3 @@ COMPONENT_PREFIX: Final[str] = "comp_"
 
 # File formats
 SUPPORTED_FORMATS: Final[tuple] = ("pickle", "joblib", "json", "yaml")
-

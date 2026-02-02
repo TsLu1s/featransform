@@ -6,27 +6,38 @@ from featransform.utils.data_generator import DatasetGenerator, make_dataset
 import warnings
 warnings.filterwarnings("ignore", category=Warning)
 
-"""Baseline example of Featransform usage."""
+"""Baseline example of Featransform usage with preset configurations."""
 
 ###################################################### Dataset Generation Examples
-###### Select your synthetic dataset or generate your own
-##################################################################################
 
 print("=" * 60)
 print("Dataset Generation Examples")
 print("=" * 60)
 
 # Simple binary classification
-X_simple, y_simple = make_dataset(task='binary_classification', n_samples=1500, complexity='simple')
+X_simple, y_simple = make_dataset(
+    task='binary_classification', 
+    n_samples=1500, 
+    complexity='simple'
+)
 print(f"\nSimple dataset: {X_simple.shape}, target classes: {y_simple.nunique()}")
 
 # Medium complexity with datetime and categorical
-X_medium, y_medium = make_dataset(task='multiclass_classification', n_samples=5000, complexity='medium', n_classes=3)
+X_medium, y_medium = make_dataset(
+    task='multiclass_classification', 
+    n_samples=5000, 
+    complexity='medium', 
+    n_classes=3
+)
 print(f"Medium dataset: {X_medium.shape}, target classes: {y_medium.nunique()}")
 print(f"Column types: {X_medium.dtypes.value_counts().to_dict()}")
 
 # Complex dataset with all features
-X_complex, y_complex = make_dataset(task='regression', n_samples=10000, complexity='complex')
+X_complex, y_complex = make_dataset(
+    task='regression', 
+    n_samples=10000, 
+    complexity='complex'
+)
 print(f"Complex dataset: {X_complex.shape}, target type: {y_complex.dtype}")
 
 ###################################################### Main Example
@@ -35,9 +46,9 @@ print("\n" + "=" * 60)
 print("Basic Featransform Example")
 print("=" * 60)
 
-# Generate your own dataset for examples
+# Generate dataset
 X, y = DatasetGenerator.generate(
-    task='multiclass_classification',                  ## Options: 'regression', 'binary_classification', 'multiclass_classification'
+    task='multiclass_classification',
     n_samples=5000,
     n_features=20,
     n_informative=15,
@@ -66,9 +77,11 @@ print("\n" + "=" * 60)
 print("Featransform Pipeline - Baseline Template")
 print("=" * 60)
 
-# Create pipeline
-config = FTconfig.complete(task_type="multiclass_classification")        # Options: minimal(), standard(), optimized(), complete()
-                                                                         # TaskType: REGRESSION, BINARY_CLASSIFICATION OR MULTICLASS_CLASSIFICATION
+# Create pipeline with preset configuration
+config = FTconfig.complete(task_type="multiclass_classification")
+# Available presets: minimal(), standard(), optimized(), complete()
+# Task types: "regression", "binary_classification", "multiclass_classification"
+
 pipeline = Featransform(config)
 
 # Fit and transform
@@ -76,15 +89,17 @@ pipeline.fit(X_train, y_train)
 X_train_transformed = pipeline.transform(X_train)
 X_test_transformed = pipeline.transform(X_test)
 
-# Results
-pipeline.optimization_report()
+# View results
+pipeline.report_optimization()
 
 ###################################################### Save & Load Pipeline
-SAVE : bool = False
+
+SAVE = False
 
 if SAVE:
-    print("\n4. Save and Load Pipeline")
-    print("-" * 40)
+    print("\n" + "=" * 60)
+    print("Save and Load Pipeline")
+    print("=" * 60)
 
     # Save pipeline
     serializer = PipelineSerializer()
@@ -101,49 +116,14 @@ if SAVE:
 
     ###################################################### One-liner Example
 
-    print("\n5. One-liner Fit-Transform")
-    print("-" * 40)
+    print("\n" + "=" * 60)
+    print("One-liner Fit-Transform")
+    print("=" * 60)
 
     # Fit and transform in one line
-    X_final = Featransform(FTconfig.complete()).fit_transform(X_train, y_train)
+    X_final = Featransform(FTconfig.complete(task_type="multiclass_classification")).fit_transform(X_train, y_train)
     print(f"One-liner result shape: {X_final.shape}")
 
     print("\n" + "=" * 60)
     print("Pipeline execution completed successfully!")
     print("=" * 60)
-
-
-"""
-## Added example of custom configuration:
-
-# Start from a base and modify
-def my_custom_config(task_type):
-    config = FTconfig.standard(task_type=task_type)
-    
-    # Your customizations
-    config.optimization.metric = OptimizationMetric.F1
-    config.processing.imputation_strategy = ImputationStrategy.KNN
-    config.anomaly_models = [
-        ModelConfig(model_family=ModelFamily.ISOLATION_FOREST)
-    ]
-    
-    return config
-
-# Use it
-config = my_custom_config("binary_classification")
-pipeline = Featransform(config)
-"""
-
-
-
-
-
-
-
-
-
-
-
-
-
-

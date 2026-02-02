@@ -1,24 +1,24 @@
 from featransform.pipeline import Featransform
-from featransform.core.models import PipelineConfig, ProcessingConfig, OptimizationConfig
+from featransform.core.models import PipelineConfig, ProcessingConfig, OptimizationConfig, ModelConfig
 from featransform.core.enums import (
-    ImputationStrategy, EncodingStrategy, SelectionStrategy, 
-    ModelFamily,
+    ImputationStrategy, EncodingStrategy, SelectionStrategy, ModelFamily
 )
 from featransform.utils.data_generator import DatasetGenerator
-from featransform.core.models import ModelConfig
 from sklearn.model_selection import train_test_split
 import warnings
 warnings.filterwarnings("ignore", category=Warning)
 
+"""Advanced configuration example with full control over pipeline components."""
+
 ###################################################### Main Example
 
 print("\n" + "=" * 60)
-print("Basic Featransform Example")
+print("Advanced Featransform Configuration")
 print("=" * 60)
 
-# Generate your own dataset for examples
+# Generate dataset
 X, y = DatasetGenerator.generate(
-    task='multiclass_classification',       # Options: 'regression', 'binary_classification', 'multiclass_classification'
+    task='multiclass_classification',
     n_samples=5000,
     n_features=20,
     n_informative=15,
@@ -41,18 +41,23 @@ print(f"Features with nulls: {X.isnull().sum().sum()}")
 print(f"Datetime columns: {X.select_dtypes(include=['datetime64']).shape[1]}")
 print(f"Categorical columns: {X.select_dtypes(include=['category']).shape[1]}")
 
-###################################################### Configure Pipeline
+###################################################### Configure Pipeline from Scratch
 
-# Create configuration
+print("\n" + "=" * 60)
+print("Custom Pipeline Configuration")
+print("=" * 60)
+
+# Create fully customized configuration
 config = PipelineConfig(
-    task_type="multiclass_classification", # regression, binary_classification OR multiclass_classification
+    task_type="multiclass_classification",
+    
     # Processing configuration
     processing=ProcessingConfig(
-        imputation_strategy=ImputationStrategy.ITERATIVE,  # MEAN, MEDIAN, MODE, CONSTANT, KNN
-        encoding_strategy=EncodingStrategy.LABEL, 
-        handle_datetime=True,                              # Extract year, month, day, hour, cyclic features
-        drop_constant=True,                                # Remove features with single value
-        drop_duplicates=True                               # Remove identical feature columns
+        imputation_strategy=ImputationStrategy.ITERATIVE,
+        encoding_strategy=EncodingStrategy.LABEL,
+        handle_datetime=True,
+        drop_constant=True,
+        drop_duplicates=True
     ),
     
     # Anomaly detection models
@@ -95,11 +100,11 @@ config = PipelineConfig(
         )
     ],
     
-    # Dimensionality dimensionality models
+    # Dimensionality reduction models
     dimensionality_models=[
         ModelConfig(
             model_family=ModelFamily.PCA,
-            parameters={'n_components': 0.95}  # Keep 95% variance
+            parameters={'n_components': 0.95}
         ),
         ModelConfig(
             model_family=ModelFamily.TRUNCATED_SVD,
@@ -110,20 +115,25 @@ config = PipelineConfig(
             parameters={'n_components': 6}
         )
     ],
+    
     # Optimization configuration
     optimization=OptimizationConfig(
         selection_strategy=SelectionStrategy.IMPORTANCE,
-        #metric=OptimizationMetric.F1       # Auto Detects as default for specific task
         n_iterations=10,
         validation_split=0.3,
         min_features=10
-    ),   
+    ),
+    
     verbose=True,
     n_jobs=-1,
     random_state=42
 )
 
 ###################################################### Fit & Transform
+
+print("\n" + "=" * 60)
+print("Fitting Pipeline")
+print("=" * 60)
 
 # Create and fit pipeline
 ft = Featransform(config)
@@ -138,7 +148,9 @@ print(f"Transformed features: {X_train_transformed.shape[1]}")
 
 ###################################################### Get Results
 
-# Get pipeline summary
-ft.optimization_report()
+print("\n" + "=" * 60)
+print("Pipeline Results")
+print("=" * 60)
 
-
+# Get pipeline summary and optimization report
+ft.report_optimization()

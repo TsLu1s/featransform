@@ -6,7 +6,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setuptools.setup(
     name="featransform",
-    version="1.6.55", 
+    version="1.6.60", 
     description="Featransform is an automated feature engineering framework for supervised machine learning",
     long_description=long_description,      
     long_description_content_type="text/markdown",

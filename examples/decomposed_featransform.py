@@ -114,7 +114,6 @@ test_dim = dim_ens.transform(X_test_proc).features
 print(f"    Added {train_dim.shape[1]} dimensionality features")
 
 # Combine all features
-# Combine all features
 X_train_all = pd.concat([
     X_train_proc,    # Original processed features
     train_anom,      # Anomaly detection features
@@ -145,7 +144,7 @@ selector_final = FeatureSelector(
 selector_final.fit(X_train_all, y_train_full)
 
 # Select top 70% features or min_features (whichever is larger)
-threshold = 0.7  # Use top 50% of cumulative importance
+threshold = 0.7  # Use top 70% of cumulative importance
 selected_features = selector_final.select_by_threshold(threshold)
 selector_final.set_selected_features(selected_features)
 
@@ -161,7 +160,7 @@ print(f"  Selected features: {len(selected_features)} features retained")
 scores = selector_final.get_feature_scores()
 if scores:
     top_10 = sorted(scores.items(), key=lambda x: x[1], reverse=True)[:10]
-    print("Top 10 features by importance:")
+    print("  Top 10 features by importance:")
     for feat, score in top_10:
         print(f"    {feat}: {score:.4f}")
 
