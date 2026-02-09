@@ -122,6 +122,9 @@ Further automated and customizable feature engineering applications:
 * [Advanced Configuration](https://github.com/TsLu1s/featransform/blob/main/examples/automated_featransform.py) - Build fully customized pipelines from scratch with complete control over preprocessing strategies, feature engineering components, and optimization parameters
 * [Component Testing](https://github.com/TsLu1s/featransform/blob/main/examples/decomposed_featransform.py) - Deep-dive into individual components with comprehensive train-test evaluation across encoding, imputation, anomaly detection, clustering, and dimensionality reduction methods
 
+
+**Prefer interactive notebooks?** Check out the [notebook examples](https://github.com/TsLu1s/featransform/blob/main/examples/notebooks) with step-by-step execution.
+
 ## Core Capabilities
 
 **Feature Engineering Methods:**
