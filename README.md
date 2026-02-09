@@ -66,60 +66,55 @@ pip install featransform
     
 ## Featransform - Automated Feature Engineering Pipeline
 
+# Usage Example
+    
+## Featransform - Automated Feature Engineering Pipeline
+
 In order to be able to apply the automated feature engineering `featransform` pipeline you need first to import the package. 
 The following needed step is to load a dataset and define your to be predicted target column name into the variable `target`.
-You can customize the `fit_engineering` method by altering the following running pipeline parameters:
-* configs: Nested dictionary in which are contained all methods specific parameters configurations. Feel free to customize each method as you see fit (customization example shown bellow);
-* optimize_iters: Number of iterations generated for backwards feature selection optimization.
-* validation_split: Division ratio in which the feature engineering methods will be evaluated within the loaded Dataset (range: [0.05, 0.45]).
+You can customize the pipeline by selecting from preset configurations (`minimal`, `standard`, `optimized`, `complete`) and specifying the task type (`regression`, `binary_classification`, `multiclass_classification`).
 
 ```py
-    
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from featransform.pipeline import (Featransform,
-                                   configurations)
+from featransform.pipeline import Featransform
+from featransform.configs.baseline import FTconfig
+from featransform.utils.serializer import PipelineSerializer
+from featransform.utils.data_generator import make_dataset
 import warnings
-warnings.filterwarnings("ignore", category=Warning) # -> For a clean console
-    
-data = pd.read_csv('csv_directory_path') # Dataframe Loading Example
+warnings.filterwarnings("ignore", category=Warning)
 
-train,test = train_test_split(data, train_size=0.8)
-train,test = train.reset_index(drop=True), test.reset_index(drop=True) # -> Required 
+# Generate sample dataset
+X, y = make_dataset(task='multiclass_classification', n_samples=5000, complexity='medium', n_classes=3)
 
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Load and Customize Parameters
+# Create pipeline with preset configuration
+config = FTconfig.complete(task_type="multiclass_classification")
+# Available presets: minimal(), standard(), optimized(), complete()
+# Task types: "regression", "binary_classification", "multiclass_classification"
 
-configs = configurations()
-print(configs)
+pipeline = Featransform(config)
 
-configs['Unsupervised']['Isolation_Forest']['n_estimators'] = 300
-configs['Clustering']['KMeans']['n_clusters'] = 3
-configs['DimensionalityReduction']['TruncatedSVDStrategy']['n_components'] = 5
+# Fit and transform
+pipeline.fit(X_train, y_train)
+X_train_transformed = pipeline.transform(X_train)
+X_test_transformed = pipeline.transform(X_test)
 
-## Fit Data
+# View optimization results
+pipeline.report_optimization()
 
-ft = Featransform(configs = configs,        # validation_split:float, optimize_iters:int 
-                  optimize_iters = 10,
-                  validation_split = 0.30) 
+# Save & Load Pipeline
+serializer = PipelineSerializer()
+serializer.save(pipeline, 'fitted_pipeline.pkl')
 
-ft.fit_engineering(X = train,              # X:pd.DataFrame, target:str="Target_Column"
-                   target = "Target_Column_Name")
+loaded_pipeline = serializer.load('fitted_pipeline.pkl')
+X_loaded_transform = loaded_pipeline.transform(X_test)
 
-## Transform Data 
+```
 
-train = ft.transform(X=train)
-test = ft.transform(X=test)
-
-# Export Featransform Metadata
-
-import pickle
-output = open("ft_eng.pkl", 'wb')
-pickle.dump(ft, output)
-    
-```  
-
-## Usage Examples
+## Usage Interactive Examples
 
 Further automated and customizable feature engineering applications:
 
