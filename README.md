@@ -148,6 +148,10 @@ Major frameworks used to build this project:
 * [CatBoost](https://catboost.ai/)
 * [Pydantic](https://docs.pydantic.dev/)
 
+## Citation
+
+If you use Featransform in your research, please cite:
+
 ```bibtex
 @software{featransform2023,
   author = {Luis Fernando Santos},
