@@ -8,11 +8,14 @@ warnings.filterwarnings("ignore", category=Warning)
 
 """Baseline example of Featransform usage with preset configurations."""
 
-###################################################### Dataset Generation Examples
+############################################################################################################ Dataset Generation Examples
 
 print("=" * 60)
 print("Dataset Generation Examples")
 print("=" * 60)
+
+# The datasets below are synthetic — for demonstration only.
+# When using Featransform for real, swap them for your own data (X) and target (y).
 
 # Simple binary classification
 X_simple, y_simple = make_dataset(
@@ -40,13 +43,14 @@ X_complex, y_complex = make_dataset(
 )
 print(f"Complex dataset: {X_complex.shape}, target type: {y_complex.dtype}")
 
-###################################################### Main Example
+############################################################################################################ Main Example
 
 print("\n" + "=" * 60)
 print("Basic Featransform Example")
 print("=" * 60)
 
-# Generate dataset
+# Generate a sample dataset — for demonstration only.
+# When using Featransform for real, swap this for your own data (X) and target (y).
 X, y = DatasetGenerator.generate(
     task='multiclass_classification',
     n_samples=5000,
@@ -61,7 +65,6 @@ X, y = DatasetGenerator.generate(
     random_state=42
 )
 
-# Split data
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
@@ -71,28 +74,27 @@ print(f"Features with nulls: {X.isnull().sum().sum()}")
 print(f"Datetime columns: {X.select_dtypes(include=['datetime64']).shape[1]}")
 print(f"Categorical columns: {X.select_dtypes(include=['category']).shape[1]}")
 
-###################################################### Pipeline Configuration & Execution
+############################################################################################################ Pipeline Configuration & Execution
 
 print("\n" + "=" * 60)
 print("Featransform Pipeline - Baseline Template")
 print("=" * 60)
 
-# Create pipeline with preset configuration
 config = FTconfig.complete(task_type="multiclass_classification")
 # Available presets: minimal(), standard(), optimized(), complete()
 # Task types: "regression", "binary_classification", "multiclass_classification"
 
 pipeline = Featransform(config)
 
-# Fit and transform
 pipeline.fit(X_train, y_train)
 X_train_transformed = pipeline.transform(X_train)
 X_test_transformed = pipeline.transform(X_test)
 
-# View results
 pipeline.report_optimization()
 
-###################################################### Save & Load Pipeline
+
+
+############################################################################################################ Save & Load Pipeline
 
 SAVE = False
 
@@ -101,29 +103,26 @@ if SAVE:
     print("Save and Load Pipeline")
     print("=" * 60)
 
-    # Save pipeline
     serializer = PipelineSerializer()
     serializer.save(pipeline, 'fitted_pipeline.pkl')
     print("Pipeline saved to 'fitted_pipeline.pkl'")
 
-    # Load pipeline
     loaded_pipeline = serializer.load('fitted_pipeline.pkl')
     print("Pipeline loaded successfully")
 
-    # Verify loaded pipeline works
     X_loaded_transform = loaded_pipeline.transform(X_test)
     print(f"Loaded pipeline output shape: {X_loaded_transform.shape}")
 
-    ###################################################### One-liner Example
+############################################################################################################ One-liner Example
 
-    print("\n" + "=" * 60)
-    print("One-liner Fit-Transform")
-    print("=" * 60)
+print("\n" + "=" * 60)
+print("One-liner Fit-Transform")
+print("=" * 60)
 
-    # Fit and transform in one line
-    X_final = Featransform(FTconfig.complete(task_type="multiclass_classification")).fit_transform(X_train, y_train)
-    print(f"One-liner result shape: {X_final.shape}")
+# Fit and transform in one line (reuses the frame built while fitting)
+X_final = Featransform(FTconfig.complete(task_type="multiclass_classification")).fit_transform(X_train, y_train)
+print(f"One-liner result shape: {X_final.shape}")
 
-    print("\n" + "=" * 60)
-    print("Pipeline execution completed successfully!")
-    print("=" * 60)
+print("\n" + "=" * 60)
+print("Pipeline execution completed successfully!")
+print("=" * 60)

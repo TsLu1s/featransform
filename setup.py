@@ -1,49 +1,11 @@
-import setuptools
-from pathlib import Path
+"""Build entry point for tools that invoke ``setup.py`` directly.
 
-this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text()
+All package metadata (name, dependencies, classifiers, URLs) is declared in
+``pyproject.toml``, and the version is read from ``src/featransform/_version.py``.
+Release with ``python -m build`` (or ``python setup.py sdist bdist_wheel``)
+followed by ``twine upload dist/*``.
+"""
 
-setuptools.setup(
-    name="featransform",
-    version="1.6.60", 
-    description="Featransform is an automated feature engineering framework for supervised machine learning",
-    long_description=long_description,      
-    long_description_content_type="text/markdown",
-    url="https://github.com/TsLu1s/Featransform",
-    author="Luís Fernando da Silva Santos",
-    author_email="luisf_ssantos@hotmail.com",
-    license="MIT",
-    classifiers=[
-        # Indicate who your project is intended for
-        "Intended Audience :: Education",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Science/Research",
-        "Intended Audience :: Customer Service",
-        "Intended Audience :: Financial and Insurance Industry",
-        "Intended Audience :: Healthcare Industry",
-        "Intended Audience :: Telecommunications Industry",
-        "Topic :: Scientific/Engineering :: Artificial Intelligence",
-        "Topic :: Scientific/Engineering :: Information Analysis",
+from setuptools import setup
 
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-    ],
-    py_modules=["featransform"],
-    packages=setuptools.find_packages(where="src"),
-    package_dir={"": "src"},
-    keywords=[
-        "data science",
-        "machine learning",
-        "data processing",
-        "feature engineering",
-        "automated feature engineering",
-        "automated machine learning",
-        "predictive modeling",
-    ],
-    install_requires=open("requirements.txt").readlines(),
-)
+setup()

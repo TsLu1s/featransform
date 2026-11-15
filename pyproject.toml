@@ -1,3 +1,76 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "featransform"
+description = "Featransform is an automated feature engineering framework for supervised machine learning"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Luís Fernando da Silva Santos", email = "luisf_ssantos@hotmail.com" },
+]
+keywords = [
+    "data science",
+    "machine learning",
+    "data processing",
+    "feature engineering",
+    "automated feature engineering",
+    "automated machine learning",
+    "predictive modeling",
+]
+classifiers = [
+    "Intended Audience :: Education",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Customer Service",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Telecommunications Industry",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# Lower bounds are the oldest releases the test suite is run against
+# (Python 3.10); the suite also passes on the current releases of each.
+dependencies = [
+    "numpy>=1.23.5",
+    "pandas>=1.5.3",
+    "scikit-learn>=1.2.2",
+    "xgboost>=2.0,<4",
+    "catboost>=1.2.2",
+    "pydantic>=2.0.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+    "black",
+    "isort",
+    "build",
+    "twine",
+]
+
+[project.urls]
+Homepage = "https://github.com/TsLu1s/Featransform"
+Repository = "https://github.com/TsLu1s/Featransform"
+"Bug Tracker" = "https://github.com/TsLu1s/Featransform/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "featransform._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.isort]
 profile = "black"
 line_length = 100
@@ -13,3 +86,6 @@ sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
 [tool.black]
 line-length = 100
 target-version = ["py311"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

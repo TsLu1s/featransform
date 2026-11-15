@@ -17,7 +17,7 @@ class ModelFamily(str, Enum):
     DBSCAN = "dbscan"
     GAUSSIAN_MIXTURE = "gaussian_mixture"
 
-    # Dimensionality dimensionality
+    # Dimensionality Reduction
     PCA = "pca"
     TRUNCATED_SVD = "truncated_svd"
     FAST_ICA = "fast_ica"
@@ -59,7 +59,14 @@ class EncodingStrategy(str, Enum):
     """Categorical encoding strategies."""
 
     LABEL = "label"
-    TARGET = "target"
+
+
+class ScalingStrategy(str, Enum):
+    """Feature scaling strategies applied to the feature-engineering input."""
+
+    STANDARD = "standard"
+    ROBUST = "robust"
+    MINMAX = "minmax"
 
 
 class SelectionStrategy(str, Enum):

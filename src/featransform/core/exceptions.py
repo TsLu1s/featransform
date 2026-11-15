@@ -12,8 +12,8 @@ class FeatureTransformError(Exception):
 class NotFittedError(FeatureTransformError):
     """Raised when transform is called before fit."""
 
-    def __init__(self, model_name: str):
-        super().__init__(f"{model_name} must be fitted before transform")
+    def __init__(self, message: str = "Component must be fitted before transform"):
+        super().__init__(message)
 
 
 class ConfigurationError(FeatureTransformError):
@@ -22,8 +22,12 @@ class ConfigurationError(FeatureTransformError):
     pass
 
 
-class ValidationError(FeatureTransformError):
-    """Raised for data validation failures."""
+class ValidationError(FeatureTransformError, ValueError):
+    """Raised for data validation failures.
+
+    Also a ``ValueError`` so callers that guard input problems with
+    ``except ValueError`` keep working.
+    """
 
     pass
 
