@@ -1,3 +1,4 @@
+import warnings
 from typing import Optional
 
 from featransform.core.enums import (
@@ -19,7 +20,7 @@ class FTconfig:
     """Preset configurations for quick pipeline setup."""
 
     @staticmethod
-    def _get_available():  # Private method with single underscore
+    def _get_available():
         """Internal method to get available configurations."""
         return [
             m for m in dir(FTconfig) if not m.startswith("_") and callable(getattr(FTconfig, m))
@@ -36,7 +37,9 @@ class FTconfig:
         }
 
         if name not in configs:
-            print(f"Unknown config '{name}', using 'standard'")
+            message = f"Unknown config '{name}', using 'standard'"
+            warnings.warn(message, UserWarning, stacklevel=2)
+            print(message)
             name = "standard"
 
         return configs[name](task_type=task_type)
@@ -50,6 +53,7 @@ class FTconfig:
                 imputation_strategy=ImputationStrategy.MEAN,
                 encoding_strategy=EncodingStrategy.LABEL,
                 handle_datetime=True,
+                auto_detect_id=True,
                 drop_constant=True,
                 drop_duplicates=False,
             ),
@@ -71,6 +75,7 @@ class FTconfig:
                 imputation_strategy=ImputationStrategy.ITERATIVE,
                 encoding_strategy=EncodingStrategy.LABEL,
                 handle_datetime=True,
+                auto_detect_id=True,
                 drop_constant=True,
                 drop_duplicates=True,
             ),
@@ -102,6 +107,7 @@ class FTconfig:
                 imputation_strategy=ImputationStrategy.ITERATIVE,
                 encoding_strategy=EncodingStrategy.LABEL,
                 handle_datetime=True,
+                auto_detect_id=True,
                 drop_constant=True,
                 drop_duplicates=True,
             ),
@@ -135,6 +141,7 @@ class FTconfig:
                 imputation_strategy=ImputationStrategy.KNN,
                 encoding_strategy=EncodingStrategy.LABEL,
                 handle_datetime=True,
+                auto_detect_id=True,
                 drop_constant=True,
                 drop_duplicates=True,
             ),

@@ -3,11 +3,11 @@ message: "If you use this Python package, please cite it as below."
 authors:
 - family-names: "Santos"
   given-names: "Luís"
-  orcid: "https://orcid:0000-0002-4121-1133"
+  orcid: "https://orcid.org/0000-0002-4121-1133"
 title: "Featransform - Automated Feature Engineering Framework for Supervised Machine Learning"
-version: 0.1.10
+version: 2.4.0
 doi: ""
-date-released: 2024-02-06
+date-released: 2026-11-15
 url: "https://pypi.org/project/featransform/"
 
 

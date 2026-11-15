@@ -5,6 +5,16 @@ import numpy as np
 import pandas as pd
 from sklearn.datasets import make_classification, make_regression
 
+# Accept both the short aliases ("binary", "multiclass") used by the convenience
+# helpers and the canonical long names.
+_TASK_ALIASES = {
+    "binary": "binary_classification",
+    "binary_classification": "binary_classification",
+    "multiclass": "multiclass_classification",
+    "multiclass_classification": "multiclass_classification",
+    "regression": "regression",
+}
+
 
 class DatasetGenerator:
     """Generate synthetic datasets for testing Featransform pipeline."""
@@ -43,7 +53,8 @@ class DatasetGenerator:
         Generate synthetic dataset with various feature types.
 
         Args:
-            task: Type of ML task ('binary', 'multiclass', 'regression')
+            task: Type of ML task — 'binary_classification', 'multiclass_classification'
+                or 'regression' (the short aliases 'binary' / 'multiclass' also work)
             n_samples: Number of samples to generate
             n_features: Total number of numeric features
             n_informative: Number of informative features
@@ -71,9 +82,18 @@ class DatasetGenerator:
             X: Feature DataFrame
             y: Target Series
         """
-        np.random.seed(random_state)
+        # Normalize short aliases to canonical task names
+        task = _TASK_ALIASES.get(task, task)
 
-        # Generate base dataset
+        if task == "regression" and n_targets != 1:
+            raise ValueError(
+                f"Only single-target regression is supported (n_targets=1); got {n_targets}"
+            )
+        if feature_names is not None and len(feature_names) < n_features:
+            raise ValueError(
+                f"feature_names has {len(feature_names)} entries but n_features={n_features}"
+            )
+
         if task == "regression":
             X, y = make_regression(
                 n_samples=n_samples,
@@ -115,31 +135,25 @@ class DatasetGenerator:
         else:
             raise ValueError(f"Unknown task: {task}")
 
-        # Convert to DataFrame
         if not feature_names:
             feature_names = [f"feature_{i}" for i in range(X.shape[1])]
 
         X = pd.DataFrame(X, columns=feature_names[: X.shape[1]])
 
-        # Add ID column
         if add_id_column:
             X.insert(0, "id", range(1, len(X) + 1))
 
-        # Add datetime features
         if add_datetime:
             X = DatasetGenerator._add_datetime_features(X, n_datetime_cols, random_state)
 
-        # Add categorical features
         if add_categorical:
             X = DatasetGenerator._add_categorical_features(
                 X, n_categorical, cat_cardinality, random_state
             )
 
-        # Add missing values
         if add_missing:
             X = DatasetGenerator._add_missing_values(X, missing_rate, random_state)
 
-        # Convert target to Series
         y = pd.Series(y, name=target_name)
 
         if not as_frame:
@@ -150,7 +164,10 @@ class DatasetGenerator:
     @staticmethod
     def _add_datetime_features(X: pd.DataFrame, n_cols: int, random_state: int) -> pd.DataFrame:
         """Add datetime columns with various patterns."""
-        np.random.seed(random_state)
+        # A local generator: seeding must never clobber the caller's global RNG.
+        # ``RandomState(seed)`` reproduces the stream the legacy global-seed
+        # calls drew from, so the generated datasets are unchanged.
+        rng = np.random.RandomState(random_state)
 
         base_date = datetime(2020, 1, 1)
 
@@ -160,11 +177,11 @@ class DatasetGenerator:
                 dates = [base_date + timedelta(days=j) for j in range(len(X))]
             elif i == 1:
                 # Random dates within 2 years
-                days = np.random.randint(0, 730, len(X))
+                days = rng.randint(0, 730, len(X))
                 dates = [base_date + timedelta(days=int(d)) for d in days]
             else:
                 # Dates with hourly precision
-                hours = np.random.randint(0, 24 * 365, len(X))
+                hours = rng.randint(0, 24 * 365, len(X))
                 dates = [base_date + timedelta(hours=int(h)) for h in hours]
 
             X[f"datetime_{i}"] = pd.to_datetime(dates)
@@ -176,7 +193,7 @@ class DatasetGenerator:
         X: pd.DataFrame, n_cats: int, cardinality: int, random_state: int
     ) -> pd.DataFrame:
         """Add categorical columns."""
-        np.random.seed(random_state)
+        rng = np.random.RandomState(random_state)
 
         for i in range(n_cats):
             if i == 0:
@@ -189,7 +206,7 @@ class DatasetGenerator:
                 # Mixed alphanumeric
                 categories = [f"type_{j}{chr(65+j%26)}" for j in range(cardinality)]
 
-            X[f"categorical_{i}"] = np.random.choice(categories, len(X))
+            X[f"categorical_{i}"] = rng.choice(categories, len(X))
             X[f"categorical_{i}"] = X[f"categorical_{i}"].astype("category")
 
         return X
@@ -199,14 +216,14 @@ class DatasetGenerator:
         X: pd.DataFrame, missing_rate: float, random_state: int
     ) -> pd.DataFrame:
         """Add missing values to numeric columns."""
-        np.random.seed(random_state)
+        rng = np.random.RandomState(random_state)
 
         numeric_cols = X.select_dtypes(include=[np.number]).columns
         # Don't add missing to ID column
         numeric_cols = [col for col in numeric_cols if col != "id"]
 
         for col in numeric_cols:
-            mask = np.random.random(len(X)) < missing_rate
+            mask = rng.random_sample(len(X)) < missing_rate
             X.loc[mask, col] = np.nan
 
         return X
@@ -260,7 +277,7 @@ class DatasetGenerator:
             n_features=30,
             n_informative=20,
             add_datetime=True,
-            n_datetime_cols=0,
+            n_datetime_cols=2,
             add_categorical=True,
             n_categorical=5,
             cat_cardinality=7,
@@ -275,12 +292,10 @@ class DatasetGenerator:
         """Generate multiple datasets for benchmarking."""
         datasets = {}
 
-        # Small datasets
         datasets["small_binary"] = DatasetGenerator.quick_binary(n_samples=1000)
         datasets["small_multiclass"] = DatasetGenerator.quick_multiclass(n_samples=1000)
         datasets["small_regression"] = DatasetGenerator.quick_regression(n_samples=1000)
 
-        # Medium datasets
         datasets["medium_binary"] = DatasetGenerator.complex_dataset(
             n_samples=5000, task="binary_classification"
         )
@@ -291,7 +306,6 @@ class DatasetGenerator:
             n_samples=5000, task="regression"
         )
 
-        # Large datasets
         datasets["large_binary"] = DatasetGenerator.complex_dataset(
             n_samples=20000, task="binary_classification"
         )
@@ -335,7 +349,7 @@ def make_dataset(
             task=task,
             n_samples=n_samples,
             add_datetime=True,
-            n_datetime_cols=0,
+            n_datetime_cols=2,
             add_categorical=True,
             n_categorical=3,
             add_missing=True,

@@ -1,10 +1,6 @@
-# Version
-__version__ = "2.0.0"
-
-# Configuration
+from featransform._version import __version__
+from featransform.builder import BuilderPipeline
 from featransform.configs.baseline import FTconfig
-
-# Enums
 from featransform.core.enums import (
     EncodingStrategy,
     FeatureType,
@@ -12,16 +8,17 @@ from featransform.core.enums import (
     ModelFamily,
     OptimizationMetric,
     PipelineStage,
+    ScalingStrategy,
     SelectionStrategy,
     TaskType,
 )
-
-# Exceptions
 from featransform.core.exceptions import (
     ConfigurationError,
     FeatureTransformError,
     NotFittedError,
+    PipelineError,
     TransformationError,
+    ValidationError,
 )
 from featransform.core.models import (
     ModelConfig,
@@ -29,12 +26,17 @@ from featransform.core.models import (
     PipelineConfig,
     ProcessingConfig,
 )
-
-# Main pipeline
+from featransform.features.anomaly import AnomalyEnsemble
+from featransform.features.clustering import ClusteringEnsemble
+from featransform.features.dimensionality import DimensionalityEnsemble
+from featransform.optimization.evaluator import BaseEvaluator
+from featransform.optimization.selector import FeatureSelector
 from featransform.pipeline import Featransform
+from featransform.processing.datetime_features import DatetimeExpander
+from featransform.processing.encoding import CategoricalEncoder
+from featransform.processing.imputation import CoreImputer
+from featransform.processing.scaling import FeatureScaler
 from featransform.utils.data_generator import DatasetGenerator, make_dataset
-
-# Utilities
 from featransform.utils.serializer import PipelineSerializer
 
 __all__ = [
@@ -55,9 +57,12 @@ __all__ = [
     "SelectionStrategy",
     "OptimizationMetric",
     "PipelineStage",
+    "ScalingStrategy",
     # Processing components
     "CoreImputer",
     "CategoricalEncoder",
+    "DatetimeExpander",
+    "FeatureScaler",
     # Feature engineering components
     "AnomalyEnsemble",
     "ClusteringEnsemble",
@@ -76,4 +81,8 @@ __all__ = [
     "ConfigurationError",
     "NotFittedError",
     "TransformationError",
+    "ValidationError",
+    "PipelineError",
+    # Version
+    "__version__",
 ]

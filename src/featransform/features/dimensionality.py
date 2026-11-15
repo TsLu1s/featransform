@@ -1,68 +1,67 @@
-import os
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 from sklearn.decomposition import PCA, FastICA, TruncatedSVD
 
-warnings.filterwarnings("ignore", category=FutureWarning)
-warnings.filterwarnings("ignore", category=DeprecationWarning, module="tensorflow")
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable TensorFlow optimizations using OneDNN
-
-from featransform.core.constants import COMPONENT_PREFIX, DEFAULT_N_COMPONENTS, DEFAULT_RANDOM_STATE
+from featransform.core.constants import DEFAULT_N_COMPONENTS, DEFAULT_RANDOM_STATE
 from featransform.core.enums import FeatureType, ModelFamily
+from featransform.core.exceptions import ConfigurationError
 from featransform.core.models import FeatureInfo, TransformationResult
-from featransform.features.base import BaseFeatureEngineer
-
-warnings.filterwarnings("ignore", category=FutureWarning)
+from featransform.features.base import BaseFeatureEngineer, BaseFeatureEnsemble
 
 
 class DimensionalityStrategy(BaseFeatureEngineer):
-    """Base strategy for dimensionality dimensionality."""
+    """Base strategy for dimensionality reduction."""
 
-    def __init__(self, n_components: int = DEFAULT_N_COMPONENTS, **kwargs):
+    def __init__(self, n_components: Union[int, float] = DEFAULT_N_COMPONENTS, **kwargs):
         super().__init__(feature_type=FeatureType.DIMENSION, **kwargs)
         self.n_components = n_components
 
     def _initialize_models(self, X: pd.DataFrame) -> None:
-        """Private method to initialize and validate models."""
-        # Validate n_components against data dimensions
-        max_components = min(X.shape) - 1
+        """Initialize and validate models.
 
-        if isinstance(self.n_components, int) and self.n_components > max_components:
-            self._log(
-                f"Requested {self.n_components} components exceeds max {max_components}, using default"
+        Float n_components is only valid for PCA (variance threshold);
+        TruncatedSVD and FastICA require integer n_components.
+        """
+        if isinstance(self.n_components, float) and self.model_family != ModelFamily.PCA:
+            raise ConfigurationError(
+                f"n_components must be an integer for "
+                f"{self.model_family.value if self.model_family else self.__class__.__name__}; "
+                f"got float {self.n_components}"
             )
-            effective_components = DEFAULT_N_COMPONENTS  # Fall back to default
+
+        max_components = min(X.shape) - 1
+        if isinstance(self.n_components, int) and self.n_components > max_components:
+            # Clamp the fallback so it can never itself exceed the data's
+            # feature/sample budget (which would crash inside sklearn).
+            effective_components = max(1, min(DEFAULT_N_COMPONENTS, max_components))
+            # The request is being overridden, so say so even when not verbose.
+            warnings.warn(
+                f"{self.__class__.__name__}: requested n_components={self.n_components} "
+                f"exceeds the data budget ({max_components}); using {effective_components}.",
+                UserWarning,
+                stacklevel=3,
+            )
         else:
             effective_components = self.n_components
 
-        # Build models with validated parameters
         self._models = self._build_models()
 
-        # Update n_components in models if needed
         for model in self._models.values():
             if hasattr(model, "n_components"):
                 model.n_components = effective_components
 
-    def fit(self, X: pd.DataFrame, y: pd.Series) -> "DimensionalityStrategy":
-        self._validate_input(X)
+    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> "DimensionalityStrategy":
+        self._validate_fit_input(X)
 
-        # Initialize models
         self._initialize_models(X)
 
-        # Fit all models
         for name, model in self._models.items():
             self._log(f"Fitting {name}")
             model.fit(X)
 
-        # Get actual components after fitting (for variance-based configs)
-        actual_components = self._get_fitted_components()
-
         self._fitted = True
-        self._feature_names = self._generate_feature_names(
-            int(actual_components), COMPONENT_PREFIX  # Ensure integer
-        )
         return self
 
     def transform(self, X: pd.DataFrame) -> TransformationResult:
@@ -70,6 +69,8 @@ class DimensionalityStrategy(BaseFeatureEngineer):
         self._validate_input(X)
 
         features = self._create_features(X)
+        # Names reflect the columns actually emitted.
+        self._feature_names = list(features.columns)
 
         feature_info = [
             FeatureInfo(
@@ -107,11 +108,10 @@ class DimensionalityStrategy(BaseFeatureEngineer):
                 return model.n_components_
             elif hasattr(model, "components_"):
                 return model.components_.shape[0]
-        # Fallback
         return DEFAULT_N_COMPONENTS
 
     def _build_models(self) -> Dict[str, Any]:
-        """Build dimensionality dimensionality models."""
+        """Build dimensionality reduction models."""
         return {}
 
     def get_params(self) -> Dict[str, Any]:
@@ -124,7 +124,7 @@ class DimensionalityStrategy(BaseFeatureEngineer):
 
 
 class PCAStrategy(DimensionalityStrategy):
-    """PCA dimensionality dimensionality."""
+    """PCA dimensionality reduction."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -140,7 +140,7 @@ class PCAStrategy(DimensionalityStrategy):
 
 
 class TruncatedSVDStrategy(DimensionalityStrategy):
-    """Truncated SVD dimensionality dimensionality."""
+    """Truncated SVD dimensionality reduction."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -156,7 +156,7 @@ class TruncatedSVDStrategy(DimensionalityStrategy):
 
 
 class FastICAStrategy(DimensionalityStrategy):
-    """FastICA dimensionality dimensionality."""
+    """FastICA dimensionality reduction."""
 
     def __init__(self, algorithm: str = "parallel", whiten: str = "unit-variance", **kwargs):
         super().__init__(**kwargs)
@@ -175,8 +175,8 @@ class FastICAStrategy(DimensionalityStrategy):
         }
 
 
-class DimensionalityEnsemble(BaseFeatureEngineer):
-    """Ensemble of dimensionality dimensionality strategies."""
+class DimensionalityEnsemble(BaseFeatureEnsemble):
+    """Ensemble of dimensionality reduction strategies."""
 
     def __init__(self, strategies: Optional[List[DimensionalityStrategy]] = None, **kwargs):
         super().__init__(feature_type=FeatureType.DIMENSION, **kwargs)
@@ -184,42 +184,3 @@ class DimensionalityEnsemble(BaseFeatureEngineer):
 
     def _default_strategies(self) -> List[DimensionalityStrategy]:
         return [PCAStrategy(n_components=self._params.get("n_components", DEFAULT_N_COMPONENTS))]
-
-    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> "DimensionalityEnsemble":
-        self._validate_input(X)
-
-        for strategy in self.strategies:
-            self._log(f"Fitting {strategy.__class__.__name__}")
-            strategy.fit(X, y)
-
-        self._fitted = True
-        return self
-
-    def transform(self, X: pd.DataFrame) -> TransformationResult:
-        self._check_fitted()
-
-        all_features = []
-        all_info = []
-
-        for strategy in self.strategies:
-            result = strategy.transform(X)
-            all_features.append(result.features)
-            all_info.extend(result.feature_info)
-
-        combined_features = pd.concat(all_features, axis=1)
-
-        return TransformationResult(
-            features=combined_features,
-            feature_info=all_info,
-        )
-
-    def _create_features(self, X: pd.DataFrame) -> pd.DataFrame:
-        pass  # Not used
-
-    def get_params(self) -> Dict[str, Any]:
-        return {"strategies": self.strategies, **self._params}
-
-    def set_params(self, **params) -> "DimensionalityEnsemble":
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self

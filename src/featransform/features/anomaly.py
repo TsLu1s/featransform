@@ -13,9 +13,9 @@ from featransform.core.constants import (
     DEFAULT_RANDOM_STATE,
 )
 from featransform.core.enums import FeatureType, ModelFamily
-from featransform.core.exceptions import NotFittedError
+from featransform.core.exceptions import NotFittedError, ValidationError
 from featransform.core.models import FeatureInfo, TransformationResult
-from featransform.features.base import BaseFeatureEngineer
+from featransform.features.base import BaseFeatureEngineer, BaseFeatureEnsemble
 
 
 class AnomalyStrategy(BaseFeatureEngineer):
@@ -40,7 +40,6 @@ class AnomalyStrategy(BaseFeatureEngineer):
             prefix = name.split("_")[0].lower()[:3]
             feature_dict = {f"{prefix}_anomaly": predictions}
 
-            # Only include scores if requested
             if self.include_scores:
                 scores = model.decision_function(X)
                 feature_dict[f"{prefix}_score"] = scores
@@ -49,16 +48,14 @@ class AnomalyStrategy(BaseFeatureEngineer):
 
         return pd.concat(results, axis=1)
 
-    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None):
-        self._validate_input(X)
+    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> "AnomalyStrategy":
+        self._validate_fit_input(X)
 
-        # Store input feature names
         self._input_features = list(X.columns)
 
-        # Build and fit models
         self._models = self._build_models()
         for _, model in self._models.items():
-            model.fit(X)  # Fit with DataFrame
+            model.fit(X)
 
         self._fitted = True
         return self
@@ -69,6 +66,8 @@ class AnomalyStrategy(BaseFeatureEngineer):
         X = self._align_features(X)
 
         features = self._create_features(X)
+        # Names reflect the columns actually emitted.
+        self._feature_names = list(features.columns)
 
         feature_info = [
             FeatureInfo(
@@ -90,17 +89,14 @@ class AnomalyStrategy(BaseFeatureEngineer):
         if self._input_features is None:
             raise NotFittedError("No input features stored from fit")
 
-        # Check for missing features
         missing = set(self._input_features) - set(X.columns)
         if missing:
-            raise ValueError(f"Missing features in transform: {missing}")
+            raise ValidationError(f"Missing features in transform: {sorted(missing, key=str)}")
 
-        # Check for extra features
         extra = set(X.columns) - set(self._input_features)
         if extra:
             self._log(f"Dropping extra features not seen during fit: {extra}")
 
-        # Return X with same columns in same order as fit
         return X[self._input_features]
 
     def _build_models(self) -> Dict[str, Any]:
@@ -136,20 +132,23 @@ class IsolationForestStrategy(AnomalyStrategy):
 
 
 class LocalOutlierFactorStrategy(AnomalyStrategy):
-    """Local Outlier Factor anomaly detection."""
+    """Local Outlier Factor anomaly detection (novelty mode).
+
+    Note: LOF in novelty mode scores a *training* row with that row counted
+    among its own neighbours, so slightly fewer training rows are flagged than
+    the configured ``contamination`` (and than on unseen rows).
+    """
 
     def __init__(self, n_neighbors: int = 20, **kwargs):
         super().__init__(**kwargs)
         self.n_neighbors = n_neighbors
         self.model_family = ModelFamily.LOCAL_OUTLIER_FACTOR
 
-    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None):
-        self._validate_input(X)
+    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> "LocalOutlierFactorStrategy":
+        self._validate_fit_input(X)
 
-        # Store input feature names
         self._input_features = list(X.columns)
 
-        # Build and fit models
         self._models = self._build_models()
         for _, model in self._models.items():
             # Fit with numpy array to match transform behavior
@@ -161,7 +160,10 @@ class LocalOutlierFactorStrategy(AnomalyStrategy):
     def _build_models(self) -> Dict[str, Any]:
         return {
             "lof": LocalOutlierFactor(
-                contamination=self.contamination, n_neighbors=self.n_neighbors, novelty=True
+                contamination=self.contamination,
+                n_neighbors=self.n_neighbors,
+                novelty=True,
+                n_jobs=self._params.get("n_jobs", DEFAULT_N_JOBS),
             )
         }
 
@@ -177,7 +179,6 @@ class LocalOutlierFactorStrategy(AnomalyStrategy):
 
             feature_dict = {f"{name}_anomaly": predictions}
 
-            # Only include scores if requested
             if self.include_scores:
                 scores = model.decision_function(X_values)
                 feature_dict[f"{name}_score"] = scores
@@ -189,7 +190,11 @@ class LocalOutlierFactorStrategy(AnomalyStrategy):
 
 
 class OneClassSVMStrategy(AnomalyStrategy):
-    """One-Class SVM anomaly detection."""
+    """One-Class SVM anomaly detection.
+
+    The share of flagged rows is governed by ``nu``; ``contamination`` is
+    accepted for interface parity with the other strategies but not used.
+    """
 
     def __init__(self, nu: float = 0.05, kernel: str = "rbf", **kwargs):
         super().__init__(**kwargs)
@@ -217,11 +222,17 @@ class EllipticEnvelopeStrategy(AnomalyStrategy):
         }
 
 
-class AnomalyEnsemble(BaseFeatureEngineer):
+class AnomalyEnsemble(BaseFeatureEnsemble):
     """Ensemble of multiple anomaly detection strategies."""
 
-    def __init__(self, strategies: Optional[List[AnomalyStrategy]] = None, **kwargs):
+    def __init__(
+        self,
+        strategies: Optional[List[AnomalyStrategy]] = None,
+        include_scores: bool = False,
+        **kwargs,
+    ):
         super().__init__(feature_type=FeatureType.ANOMALY, **kwargs)
+        self.include_scores = include_scores
         self.strategies = strategies or self._default_strategies()
 
     def _default_strategies(self) -> List[AnomalyStrategy]:
@@ -233,42 +244,3 @@ class AnomalyEnsemble(BaseFeatureEngineer):
                 n_jobs=self._params.get("n_jobs", DEFAULT_N_JOBS),
             )
         ]
-
-    def fit(self, X: pd.DataFrame, y: Optional[pd.Series] = None) -> "AnomalyEnsemble":
-        self._validate_input(X)
-
-        for strategy in self.strategies:
-            self._log(f"Fitting {strategy.__class__.__name__}")
-            strategy.fit(X, y)
-
-        self._fitted = True
-        return self
-
-    def transform(self, X: pd.DataFrame) -> TransformationResult:
-        self._check_fitted()
-
-        all_features = []
-        all_info = []
-
-        for strategy in self.strategies:
-            result = strategy.transform(X)
-            all_features.append(result.features)
-            all_info.extend(result.feature_info)
-
-        combined_features = pd.concat(all_features, axis=1)
-
-        return TransformationResult(
-            features=combined_features,
-            feature_info=all_info,
-        )
-
-    def _create_features(self, X: pd.DataFrame) -> pd.DataFrame:
-        pass  # Not used in ensemble
-
-    def get_params(self) -> Dict[str, Any]:
-        return {"strategies": self.strategies, **self._params}
-
-    def set_params(self, **params) -> "AnomalyEnsemble":
-        for key, value in params.items():
-            setattr(self, key, value)
-        return self

@@ -1,0 +1,31 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Packaging / build output
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Library side-effects and example outputs
+catboost_info/
+fitted_pipeline.pkl
+
+# OS / editor files
+.DS_Store
+.idea/
+.vscode/

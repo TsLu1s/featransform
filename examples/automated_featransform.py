@@ -16,7 +16,8 @@ print("\n" + "=" * 60)
 print("Advanced Featransform Configuration")
 print("=" * 60)
 
-# Generate dataset
+# Generate a sample dataset — for demonstration only.
+# When using Featransform for real, swap this for your own data (X) and target (y).
 X, y = DatasetGenerator.generate(
     task='multiclass_classification',
     n_samples=5000,
@@ -31,7 +32,6 @@ X, y = DatasetGenerator.generate(
     random_state=42
 )
 
-# Split data
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
 )
@@ -47,11 +47,8 @@ print("\n" + "=" * 60)
 print("Custom Pipeline Configuration")
 print("=" * 60)
 
-# Create fully customized configuration
 config = PipelineConfig(
     task_type="multiclass_classification",
-    
-    # Processing configuration
     processing=ProcessingConfig(
         imputation_strategy=ImputationStrategy.ITERATIVE,
         encoding_strategy=EncodingStrategy.LABEL,
@@ -59,16 +56,14 @@ config = PipelineConfig(
         drop_constant=True,
         drop_duplicates=True
     ),
-    
-    # Anomaly detection models
     anomaly_models=[
         ModelConfig(
             model_family=ModelFamily.ISOLATION_FOREST,
-            parameters={'n_estimators': 300, 'contamination': 0.002}
+            parameters={'n_estimators': 300, 'contamination': 0.05}
         ),
         ModelConfig(
             model_family=ModelFamily.LOCAL_OUTLIER_FACTOR,
-            parameters={'n_neighbors': 20, 'contamination': 0.002}
+            parameters={'n_neighbors': 20, 'contamination': 0.05}
         ),
         ModelConfig(
             model_family=ModelFamily.ONE_CLASS_SVM,
@@ -76,11 +71,9 @@ config = PipelineConfig(
         ),
         ModelConfig(
             model_family=ModelFamily.ELLIPTIC_ENVELOPE,
-            parameters={'contamination': 0.002}
+            parameters={'contamination': 0.05}
         )
     ],
-    
-    # Clustering models
     clustering_models=[
         ModelConfig(
             model_family=ModelFamily.KMEANS,
@@ -99,8 +92,6 @@ config = PipelineConfig(
             parameters={'n_components': 3}
         )
     ],
-    
-    # Dimensionality reduction models
     dimensionality_models=[
         ModelConfig(
             model_family=ModelFamily.PCA,
@@ -115,15 +106,12 @@ config = PipelineConfig(
             parameters={'n_components': 6}
         )
     ],
-    
-    # Optimization configuration
     optimization=OptimizationConfig(
         selection_strategy=SelectionStrategy.IMPORTANCE,
         n_iterations=10,
         validation_split=0.3,
         min_features=10
     ),
-    
     verbose=True,
     n_jobs=-1,
     random_state=42
@@ -135,11 +123,9 @@ print("\n" + "=" * 60)
 print("Fitting Pipeline")
 print("=" * 60)
 
-# Create and fit pipeline
 ft = Featransform(config)
 ft.fit(X_train, y_train)
 
-# Transform data
 X_train_transformed = ft.transform(X_train)
 X_test_transformed = ft.transform(X_test)
 
@@ -152,5 +138,4 @@ print("\n" + "=" * 60)
 print("Pipeline Results")
 print("=" * 60)
 
-# Get pipeline summary and optimization report
 ft.report_optimization()
